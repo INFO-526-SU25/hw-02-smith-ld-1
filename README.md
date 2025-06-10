@@ -38,7 +38,29 @@ of it in action will be helpful. Read the package README at
 more information than you need for this question in the vignette; the
 first section on Geoms should be sufficient to help you get started.)
 
-```{r Question 1}
+```{r Install Packages}
+library("ggridges")
+library(tidyverse)
+library(janitor)
+
+```
+
+```{r}
+bnb <- dsbox::edibnb
+
+bnb %>% group_by(neighbourhood) %>% summarise(median(review_scores_rating, na.rm=TRUE))
+```
+
+```{r}
+bnb <- dsbox::edibnb
+bnb <- mutate(neighbourhood=fct_reorder(neighbourhood, review_scores_rating, .fun='median'))
+ggplot(bnb, aes(x=review_scores_rating, y=neighbourhood)) + 
+  geom_density_ridges() + 
+  labs(
+    title="Average AirBnB Ratings across Neighbourhoods",
+    y="Neighbourhood",
+    x="Review Rating"
+  )
 ```
 
 ## Question 2
@@ -55,8 +77,8 @@ files in the `data` directory of your repository/project. There are 11
 files, each for an election cycle between 2000 and 2022. You can load
 all of the data at once using the code below.
 
-````         
 ``` r
+{r}
 # get a list of files with "Foreign Connected PAC" in their names
 list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
 
@@ -64,7 +86,6 @@ list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
 # keeping track of the file name in a new column called year
 pac <- read_csv(list_of_files, id = "year")
 ```
-````
 
 The ultimate goal of this exercise is to recreate yet another plot. But
 there is a nontrivial amount of data wrangling and tidying that needs to
@@ -116,6 +137,20 @@ as we review your work.
     contributions to US politics. Interpret the new visualization that
     you make.
 
+```{r}
+install.packages("fs")
+library(fs)
+```
+
+```{r}
+# get a list of files with "Foreign Connected PAC" in their names
+list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
+
+# read all files and row bind them
+# keeping track of the file name in a new column called year
+pac <- read_csv(list_of_files, id = "year")
+```
+
 ## Question 3
 
 **Median housing prices in the US.** The inspiration and the data for
@@ -151,6 +186,121 @@ are in the data folder of your repository.
 -   Create the following visualization.
 
 <img src="images/median-housing-3-1.png" width="90%"/>
+
+```{r}
+medhousing <- read_csv("data/median-housing.csv")
+recessions <- read_csv("data/recessions.csv")
+
+medhousing <- rename(medhousing, all_of(c(date="DATE", price="MSPUS")))
+library(scales)
+```
+
+```{r}
+ggplot(medhousing, aes(x=date, y=price)) +
+  geom_line(color="#5571DC") + 
+  scale_y_continuous(limits=c(0,400000), labels=label_comma(), n.breaks=13) + 
+
+  labs(
+    x="Date", y="Price", title="Median sales price of houses sold in the United States",
+    subtitle="Not seasonally adjusted"
+  ) + 
+  scale_x_date(date_breaks="5 years", date_labels="%Y") + 
+  # annotation_custom(textGrob("Sources: Census; HUD"))
+   annotate("text", label="Sources: Census; HUD", x=ymd("2015-12-01"), y=0, vjust=5) + 
+  coord_cartesian(clip = "off") + 
+    theme(
+    panel.grid.minor.x=element_blank(),
+    panel.grid.minor.y=element_blank(),
+    panel.grid.major.x=element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.grid.major.y=element_line(color="lightgrey"),
+    axis.ticks=element_blank(),
+    plot.margin = unit(c(1,1,2,1), "lines")
+  ) 
+
+```
+
+```{r}
+library(data.table)
+min_housing_date = min(medhousing$date)
+max_housing_date = max(medhousing$date)
+recessions['occurredDuringHousing'] = ifelse(recessions$Peak >= min_housing_date & recessions$Trough <= max_housing_date, TRUE, FALSE)
+
+
+medhousing['prev_year_price'] =  shift(medhousing$price, 1, type='lag')
+medhousing['decline'] = ifelse(medhousing$price < medhousing$prev_year_price, TRUE, FALSE)
+medhousing['nextdate'] = shift(medhousing$date, -1)
+
+baseplot <- ggplot(medhousing, aes(x=date, y=price)) +
+  scale_y_continuous(limits=c(0,400000), labels=label_comma(), n.breaks=13) + 
+  labs(
+    x="", y="Price", title="Median sales price of houses sold in the United States",
+    subtitle="Not seasonally adjusted"
+  ) + 
+  scale_x_date(date_breaks="5 years", date_labels="%Y") + 
+   annotate("text", label="Shaded areas indicate U.S. recesions", x=ymd("2015-12-01"), y=0, vjust=5, hjust=.7) + 
+  annotate("text", label="Sources: Census; HUD", x=ymd("2015-12-01"), y=0, vjust=7) + 
+  coord_cartesian(clip = "off") + 
+    theme(
+    panel.grid.minor.x=element_blank(),
+    panel.grid.minor.y=element_blank(),
+    panel.grid.major.x=element_blank(),
+    panel.background = element_rect(fill = "white"),
+    panel.grid.major.y=element_line(color="lightgrey"),
+    axis.ticks=element_blank(),
+    plot.margin = unit(c(1,1,2,1), "lines")
+  ) 
+
+
+identifiedRecessions <- recessions |> filter(recessions$occurredDuringHousing == TRUE)
+
+for (i in 1:nrow(identifiedRecessions)) {
+  row <- identifiedRecessions[i,]
+  baseplot <- baseplot + annotate("rect", xmin=row$Peak, xmax=row$Trough, ymin=0, ymax=40e4, fill="#E6E6E6", alpha=1)
+}
+
+baseplot + geom_line(color="#5571DC",linewidth=1)
+
+```
+
+```{r}
+install.packages("zoo")
+```
+
+```{r Housing_Subset}
+library(zoo)
+
+medhousingSubset <- medhousing |> filter(date >= ymd("2019-01-01") & date <= ymd("2020-12-31"))
+medhousingSubset <- medhousingSubset |> mutate(year = year(date)) |> mutate(quarter = case_when(
+  month(date) %in% c(1, 2, 3) ~ "Q1",
+  month(date) %in% c(4, 5, 6) ~ "Q2",
+  month(date) %in% c(7, 8, 9) ~ "Q3",
+  month(date) %in% c(10, 11, 12) ~ "Q4",
+  .default = ""
+  
+)) |> mutate(posixdate = as.POSIXct(date))
+
+ggplot(medhousingSubset, aes(y=price, x=date)) + 
+  geom_line(color="blue") + geom_point(color='blue', fill='white', shape=21) + 
+  theme(
+    panel.background = element_rect(fill="white"),
+    panel.grid.major = element_line(color="lightgrey"),
+    panel.grid.minor.y=element_line(color="lightgrey"),
+    strip.clip="on",
+    axis.ticks = element_blank(),
+    plot.margin = unit(c(1, 1, 2, 1), "cm")
+    
+  )  + xlim(ymd("2019-01-01", ymd("2020-12-31"))) + 
+  scale_y_continuous(limits=c(300000, 360000),labels=label_comma(), breaks=seq(30e4,36e4, by = 2e4), expand=c(0,0)) + 
+    labs(
+    x="", y="Price", title="Median sales price of houses sold in the United States",
+    subtitle="Not seasonally adjusted"
+  ) +
+  coord_cartesian(clip = "off") + 
+  annotate("text", label="2020", x=ymd("2020-10-01"), y=30e4, vjust=5, hjust=4.) + 
+  annotate("text", label="2019", x=ymd("2020-10-01"), y=30e4, vjust=5, hjust=13.5) + 
+  scale_x_date(date_breaks = "3 months", labels=quarter, breaks=c(1, 4, 7, 12), expand=c(0,0)) 
+```
 
 ## Question 4
 
