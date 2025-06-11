@@ -113,7 +113,7 @@ baseplot <- ggplot(medhousing, aes(x=date, y=price)) +
     subtitle="Not seasonally adjusted"
   ) + 
   scale_x_date(date_breaks="5 years", date_labels="%Y") + 
-   annotate("text", label="Shaded areas indicate U.S. recesions", x=ymd("2015-12-01"), y=0, vjust=5, hjust=.7) + 
+   annotate("text", label="Shaded areas indicate U.S. recessions", x=ymd("2015-12-01"), y=0, vjust=5, hjust=.7) + 
   annotate("text", label="Sources: Census; HUD", x=ymd("2015-12-01"), y=0, vjust=7) + 
   coord_cartesian(clip = "off") + 
     theme(
@@ -180,7 +180,71 @@ ggplot(medhousingSubset, aes(y=price, x=date)) +
 ## 4 - Expect More. Plot More.
 
 ```{r}
+install.packages("ggforce")
+library("ggforce")
+
+```
+
+```{r}
+library("ggplot2")
+library("ggforce")
+
+# creating a data frame
+df <- data.frame(col1=sample(rep(c(1, 20, 40), each=26)),
+                 col2=sample(rep(c(1: 6), each=13))
+                 )
+
+df <- data.frame(col1=c(0, 100), col2=c(0, 100))
+
+# plotting the data
+ggplot(df, aes(x=col1, y=col2)) +
+  geom_circle(aes(x0=50, y0=50, r=50), fill="#D53A2A", color="#D53A2A", inherit.aes=FALSE)+
+  geom_circle(aes(x0=50, y0=50, r=35), fill="white", color="white", inherit.aes=FALSE)+
+  geom_circle(aes(x0=50, y0=50, r=15), fill="#D53A2A", color="#D53A2A", inherit.aes=FALSE)+
+
+ coord_fixed(clip="off") + 
+  theme (
+    panel.background = element_blank(),
+    axis.title = element_blank(),
+    legend.position="none",
+    axis.ticks.x = element_blank(),
+    axis.ticks.y=element_blank(),
+    axis.text.x=element_blank(),
+    axis.text.y=element_blank(),
+    plot.margin=margin(10, 10, 100, 10)
+  ) + 
+  annotate("text", label="TARGET", x=50, y=0, vjust=2, color="#D53A2A", size=12, fontface="bold") +
+    geom_circle(aes(x0=110, y0=-38, r=6), fill="white", color="#D53A2A", inherit.aes=FALSE, linewidth=1) + 
+    annotate("text", label="R", x=110, y=0, vjust=6.44, color="#D53A2A", size=4, fontface="bold")
+
 
 ```
 
 ## 5 - Mirror, mirror on the wall, who’s the ugliest of them all?
+
+```{r}
+install.packages("palmerpenguins")
+library(palmerpenguins)
+```
+
+```{r}
+penguins
+```
+
+```{r}
+ggplot(penguins, aes(x=bill_depth_mm, y=bill_length_mm, color=flipper_length_mm)) + 
+  geom_point()
+```
+
+```{r}
+ggplot(penguins, aes(x=bill_depth_mm, y=bill_length_mm, color=flipper_length_mm)) + 
+  geom_point(shape="\u003C", size=4) + 
+  scale_color_gradient(low="pink", high="orange") + 
+  scale_x_continuous(limits=c(0, 40)) + 
+  theme(
+    panel.background = element_rect(fill="red"),
+    panel.grid.major.x = element_line(color="green"),
+      panel.grid.major.y = element_line(color="blue", linewidth = 2), 
+    legend.background = element_rect()
+  )
+```
