@@ -16,7 +16,7 @@ library(janitor)
 ## 1 - A new day, a new plot, a new geom
 
 ```{r}
-#| label: label-me-1
+#| label: load-data
 bnb <- dsbox::edibnb
 
 bnb %>% group_by(neighbourhood) %>% summarise(median(review_scores_rating, na.rm=TRUE))
@@ -25,6 +25,8 @@ bnb %>% group_by(neighbourhood) %>% summarise(median(review_scores_rating, na.rm
 ```
 
 ```{r}
+#| label: mutate and plot
+
 bnb <- dsbox::edibnb
 bnb <- mutate(neighbourhood=fct_reorder(neighbourhood, review_scores_rating, .fun='median'))
 ggplot(bnb, aes(x=review_scores_rating, y=neighbourhood)) + 
@@ -36,14 +38,19 @@ ggplot(bnb, aes(x=review_scores_rating, y=neighbourhood)) +
   )
 ```
 
+Interpretation:
+
+-   Interesting to see that most values are near 100.
+
+-   There are also blips just around the 80 marks, and this is consistent across every neighbourhood.
+
+-   I can't tell from the graph itself, but it could be that number of observations are so small as the review rating decreases that it shows a continuing line. The other possibility is that those values are all nonexistent, but I do not think that would be an accurate representation on the graph. "Zoomed out" at this scale, it is hard to decipher the meaning.
+
 ## 2 - Foreign Connected PACs
 
 ```{r}
-#| label: label-me-2
+#| label: load files
 
-```
-
-```{r}
 # get a list of files with "Foreign Connected PAC" in their names
 list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
 
@@ -60,9 +67,66 @@ list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
 pac <- read_csv(list_of_files, id = "year")
 ```
 
+```{r}
+
+# read all files and row bind them
+# keeping track of the file name in a new column called year
+pac <- read_csv(list_of_files, id = "year")
+pac <- clean_names(pac)
+pac <- pac |>
+  extract(
+    year,
+    into = "last_year",
+    regex = "-([0-9]{4})"
+  )  |> mutate(last_year=as.integer(last_year))
+pac <- pac |> extract(dems, into="dems", regex="([0-9]+)") |> mutate(dems=as.double(dems))
+pac <- pac |> extract(repubs, into="repubs", regex="([0-9]+)") |> mutate(repubs=as.double(repubs))
+pac <- pac |> extract(country_of_origin_parent_company, c("Country", "Parent Company"), "([\\w ]+)/([\\w\\D ]+)") 
+```
+
+```{r}
+pac2 <- pac |> pivot_longer(cols=c("dems", "repubs"), names_to="party", values_to="amount")
+```
+
+```{r}
+uk <- pac2 |> 
+    filter(Country == "UK") |> 
+    group_by(last_year, party) |> 
+    summarise(total=sum(amount))
+
+
+
+```
+
+```{r}
+ggplot(uk, aes(x=last_year, y=total, color=party)) + 
+  geom_line(linewidth=1) +
+  scale_y_continuous(labels = label_currency(scale_cut=cut_short_scale())) + 
+  theme(
+    panel.background = element_rect(fill="white"),
+    panel.grid.major.x = element_line(color="lightgrey"),
+    panel.grid.major.y = element_line(color="lightgrey"),
+    panel.grid.minor.x = element_line(color="lightgrey"),
+    panel.grid.minor.y = element_line(color="lightgrey"),
+    legend.position=c(.9, .15),
+    legend.background = element_blank(),
+    plot.margin = margin(1, 1, 5, 1)
+    ) + 
+  scale_color_manual(labels = c("Democrat", "Republican"), values = c("blue", "red")) + 
+  labs(
+    color = "Party", x="", y="", title="Contributions to US political parties from UK-connected PACs"
+  ) + 
+  coord_cartesian(clip="off") + 
+  annotate("text", label="Source: OpenSecrets.org", x=2020.7, y=1e6, vjust=7, size=3) + 
+  annotate("text", label="Total Amount", x=2000, y=1e6, vjust=-6, size=4, hjust=.3, angle=90) + 
+  annotate("text", label="Year", x=2000, y=1e6, vjust=5, size=4, hjust=1)
+```
+
 ## 3 - Median housing prices in the US
 
 ```{r}
+#| label: load data
+
 medhousing <- read_csv("data/median-housing.csv")
 recessions <- read_csv("data/recessions.csv")
 
@@ -71,6 +135,8 @@ library(scales)
 ```
 
 ```{r}
+#| label: plot housing graph 1
+
 ggplot(medhousing, aes(x=date, y=price)) +
   geom_line(color="#5571DC") + 
   scale_y_continuous(limits=c(0,400000), labels=label_comma(), n.breaks=13) + 
@@ -96,6 +162,8 @@ ggplot(medhousing, aes(x=date, y=price)) +
 ```
 
 ```{r}
+#| label: plot housing graph 2
+
 library(data.table)
 min_housing_date = min(medhousing$date)
 max_housing_date = max(medhousing$date)
@@ -139,10 +207,13 @@ baseplot + geom_line(color="#5571DC",linewidth=1)
 ```
 
 ```{r}
+#| label: install zoo
 install.packages("zoo")
 ```
 
 ```{r}
+#| label: plot housing graph 3
+
 library(zoo)
 
 medhousingSubset <- medhousing |> filter(date >= ymd("2019-01-01") & date <= ymd("2020-12-31"))
@@ -180,12 +251,17 @@ ggplot(medhousingSubset, aes(y=price, x=date)) +
 ## 4 - Expect More. Plot More.
 
 ```{r}
+#| label: install ggforce
+
 install.packages("ggforce")
 library("ggforce")
 
 ```
 
 ```{r}
+
+#| label: make target logo
+
 library("ggplot2")
 library("ggforce")
 
@@ -223,20 +299,28 @@ ggplot(df, aes(x=col1, y=col2)) +
 ## 5 - Mirror, mirror on the wall, who’s the ugliest of them all?
 
 ```{r}
+#| label: load penguins
+
 install.packages("palmerpenguins")
 library(palmerpenguins)
 ```
 
 ```{r}
+#| label: preview penguins data
+
 penguins
 ```
 
 ```{r}
+#| label: graph penguins - good graph
+
 ggplot(penguins, aes(x=bill_depth_mm, y=bill_length_mm, color=flipper_length_mm)) + 
   geom_point()
 ```
 
 ```{r}
+#| label: graph penguins - bad graph
+
 ggplot(penguins, aes(x=bill_depth_mm, y=bill_length_mm, color=flipper_length_mm)) + 
   geom_point(shape="\u003C", size=4) + 
   scale_color_gradient(low="pink", high="orange") + 
