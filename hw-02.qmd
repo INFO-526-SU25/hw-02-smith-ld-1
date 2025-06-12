@@ -8,7 +8,7 @@ toc: true
 ---
 
 ```{r}
-install.packages("fs")
+install.packages("fs",repos = "http://cran.us.r-project.org")
 
 ```
 
@@ -16,6 +16,7 @@ install.packages("fs")
 library("ggridges")
 library(tidyverse)
 library(janitor)
+library(scales)
 ```
 
 ## 1 - A new day, a new plot, a new geom
@@ -24,7 +25,7 @@ library(janitor)
 #| label: load-data
 bnb <- dsbox::edibnb
 
-bnb %>% group_by(neighbourhood) %>% summarise(median(review_scores_rating, na.rm=TRUE))
+bnb <- bnb |> group_by(neighbourhood) |> summarise(median(review_scores_rating, na.rm=TRUE))
 
 
 ```
@@ -33,7 +34,7 @@ bnb %>% group_by(neighbourhood) %>% summarise(median(review_scores_rating, na.rm
 #| label: mutate and plot
 
 bnb <- dsbox::edibnb
-bnb <- mutate(neighbourhood=fct_reorder(neighbourhood, review_scores_rating, .fun='median'))
+bnb <- bnb |> mutate(neighbourhood=fct_reorder(neighbourhood, review_scores_rating, .fun='median'))
 ggplot(bnb, aes(x=review_scores_rating, y=neighbourhood)) + 
   geom_density_ridges() + 
   labs(
@@ -134,7 +135,7 @@ ggplot(uk, aes(x=year, y=total, color=party)) +
 ```
 
 ```{r}
-#| label: filter pac by UK only
+#| label: filter pac by France only
 france <- pac2 |> 
     filter(Country == "France") |> 
     group_by(year, party) |> 
@@ -259,7 +260,7 @@ baseplot + geom_line(color="#5571DC",linewidth=1)
 
 ```{r}
 #| label: install zoo
-install.packages("zoo")
+install.packages("zoo",repos = "http://cran.us.r-project.org")
 ```
 
 ```{r}
@@ -304,7 +305,7 @@ ggplot(medhousingSubset, aes(y=price, x=date)) +
 ```{r}
 #| label: install ggforce
 
-install.packages("ggforce")
+install.packages("ggforce",repos = "http://cran.us.r-project.org")
 library("ggforce")
 
 ```
@@ -315,9 +316,16 @@ For this process, I made three circles filled in alternating with red, white, re
 
 ```{r}
 #| label: make target logo
-
+library(knitr)
 library("ggplot2")
 library("ggforce")
+knitr::opts_chunk$set(
+  fig.width = 7,        # 7" width
+  fig.asp = .4,      # the golden ratio
+  fig.retina = 3,       # dpi multiplier for displaying HTML output on retina
+  fig.align = "center", # center align figures
+  dpi = 300             # higher dpi, sharper image
+)
 
 # creating a data frame
 df <- data.frame(col1=sample(rep(c(1, 20, 40), each=26)),
@@ -341,11 +349,11 @@ ggplot(df, aes(x=col1, y=col2)) +
     axis.ticks.y=element_blank(),
     axis.text.x=element_blank(),
     axis.text.y=element_blank(),
-    plot.margin=margin(10, 10, 100, 10)
+    # plot.margin=margin(10, 10, 10, 10)
   ) + 
   annotate("text", label="TARGET", x=50, y=0, vjust=2, color="#CC0000", size=12, fontface="bold") +
-    geom_circle(aes(x0=110, y0=-38, r=6), fill="white", color="#CC0000", inherit.aes=FALSE, linewidth=1) + 
-    annotate("text", label="R", x=110, y=0, vjust=6.44, color="#CC0000", size=4, fontface="bold")
+    geom_circle(aes(x0=88, y0=-23, r=4.5), fill="white", color="#CC0000", inherit.aes=FALSE, linewidth=1) + 
+    annotate("text", label="R", x=88, y=-23, color="#CC0000", size=4, fontface="bold")
 
 
 ```
@@ -355,7 +363,7 @@ ggplot(df, aes(x=col1, y=col2)) +
 ```{r}
 #| label: load penguins
 
-install.packages("palmerpenguins")
+install.packages("palmerpenguins",repos = "http://cran.us.r-project.org")
 library(palmerpenguins)
 ```
 
