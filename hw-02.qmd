@@ -8,6 +8,11 @@ toc: true
 ---
 
 ```{r}
+install.packages("fs")
+
+```
+
+```{r}
 library("ggridges")
 library(tidyverse)
 library(janitor)
@@ -50,24 +55,21 @@ Interpretation:
 
 ```{r}
 #| label: load files
-
+library(fs)
 # get a list of files with "Foreign Connected PAC" in their names
 list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
 
 # read all files and row bind them
 # keeping track of the file name in a new column called year
 pac <- read_csv(list_of_files, id = "year")
-install.packages("fs")
-library(fs)
 
-list_of_files <- dir_ls(path = "data", regexp = "Foreign Connected PAC")
 
-# read all files and row bind them
-# keeping track of the file name in a new column called year
-pac <- read_csv(list_of_files, id = "year")
+
 ```
 
 ```{r}
+#| label: load pac
+
 
 # read all files and row bind them
 # keeping track of the file name in a new column called year
@@ -76,22 +78,27 @@ pac <- clean_names(pac)
 pac <- pac |>
   extract(
     year,
-    into = "last_year",
+    into = "year",
     regex = "-([0-9]{4})"
-  )  |> mutate(last_year=as.integer(last_year))
+  )  |> mutate(year=as.integer(year))
 pac <- pac |> extract(dems, into="dems", regex="([0-9]+)") |> mutate(dems=as.double(dems))
 pac <- pac |> extract(repubs, into="repubs", regex="([0-9]+)") |> mutate(repubs=as.double(repubs))
 pac <- pac |> extract(country_of_origin_parent_company, c("Country", "Parent Company"), "([\\w ]+)/([\\w\\D ]+)") 
 ```
 
 ```{r}
+#| label: pivot pac
+
 pac2 <- pac |> pivot_longer(cols=c("dems", "repubs"), names_to="party", values_to="amount")
+pac2['party'] = case_when(pac2['party']=='dems' ~ 'Democrat', pac2['party']=='repubs' ~ 'Republican', 
+                          .default='Not Listed')
 ```
 
 ```{r}
+#| label: filter pac by UK only
 uk <- pac2 |> 
     filter(Country == "UK") |> 
-    group_by(last_year, party) |> 
+    group_by(year, party) |> 
     summarise(total=sum(amount))
 
 
@@ -99,8 +106,11 @@ uk <- pac2 |>
 ```
 
 ```{r}
-ggplot(uk, aes(x=last_year, y=total, color=party)) + 
+#| label: show UK PAC investment
+#| 
+ggplot(uk, aes(x=year, y=total, color=party)) + 
   geom_line(linewidth=1) +
+  # make sacle 1M, 2M, 3M
   scale_y_continuous(labels = label_currency(scale_cut=cut_short_scale())) + 
   theme(
     panel.background = element_rect(fill="white"),
@@ -116,11 +126,48 @@ ggplot(uk, aes(x=last_year, y=total, color=party)) +
   labs(
     color = "Party", x="", y="", title="Contributions to US political parties from UK-connected PACs"
   ) + 
+  # allow for text outside of plotting area
   coord_cartesian(clip="off") + 
   annotate("text", label="Source: OpenSecrets.org", x=2020.7, y=1e6, vjust=7, size=3) + 
   annotate("text", label="Total Amount", x=2000, y=1e6, vjust=-6, size=4, hjust=.3, angle=90) + 
   annotate("text", label="Year", x=2000, y=1e6, vjust=5, size=4, hjust=1)
 ```
+
+```{r}
+#| label: filter pac by UK only
+france <- pac2 |> 
+    filter(Country == "France") |> 
+    group_by(year, party) |> 
+    summarise(total=sum(amount))
+
+
+ggplot(france, aes(x=year, y=total, color=party)) + 
+  geom_line(linewidth=1) +
+  # make sacle 1M, 2M, 3M
+  scale_y_continuous(labels = label_currency(scale_cut=cut_short_scale())) + 
+  theme(
+    panel.background = element_rect(fill="white"),
+    panel.grid.major.x = element_line(color="lightgrey"),
+    panel.grid.major.y = element_line(color="lightgrey"),
+    panel.grid.minor.x = element_line(color="lightgrey"),
+    panel.grid.minor.y = element_line(color="lightgrey"),
+    legend.position=c(.9, .15),
+    legend.background = element_blank(),
+    plot.margin = margin(1, 1, 5, 1)
+    ) + 
+  scale_color_manual(labels = c("Democrat", "Republican"), values = c("blue", "red")) + 
+  labs(
+    color = "Party", x="", y="", title="Contributions to US political parties from French-connected PACs"
+  ) + 
+  # allow for text outside of plotting area
+  coord_cartesian(clip="off") + 
+  annotate("text", label="Source: OpenSecrets.org", x=2020.3, y=200000, vjust=6.5, size=3) + 
+  annotate("text", label="Total Amount", x=2000, y=200000, vjust=-7, size=4, hjust=.4, angle=90) + 
+  annotate("text", label="Year", x=2000, y=200000, vjust=5, size=4, hjust=1)
+
+```
+
+It's interesting to find that there is a similar trend between the UK and French political contributions. We see an increase around 2008 for democrats, and a decrease for republicans around 2018.
 
 ## 3 - Median housing prices in the US
 
@@ -138,11 +185,11 @@ library(scales)
 #| label: plot housing graph 1
 
 ggplot(medhousing, aes(x=date, y=price)) +
-  geom_line(color="#5571DC") + 
+  geom_line(color="#5571DC", linewidth=1) + 
   scale_y_continuous(limits=c(0,400000), labels=label_comma(), n.breaks=13) + 
 
   labs(
-    x="Date", y="Price", title="Median sales price of houses sold in the United States",
+    x="", y="Price", title="Median sales price of houses sold in the United States",
     subtitle="Not seasonally adjusted"
   ) + 
   scale_x_date(date_breaks="5 years", date_labels="%Y") + 
@@ -165,8 +212,10 @@ ggplot(medhousing, aes(x=date, y=price)) +
 #| label: plot housing graph 2
 
 library(data.table)
+# get min and max housing date
 min_housing_date = min(medhousing$date)
 max_housing_date = max(medhousing$date)
+# i realized that the next 5 lines aren't needed.
 recessions['occurredDuringHousing'] = ifelse(recessions$Peak >= min_housing_date & recessions$Trough <= max_housing_date, TRUE, FALSE)
 
 
@@ -174,6 +223,8 @@ medhousing['prev_year_price'] =  shift(medhousing$price, 1, type='lag')
 medhousing['decline'] = ifelse(medhousing$price < medhousing$prev_year_price, TRUE, FALSE)
 medhousing['nextdate'] = shift(medhousing$date, -1)
 
+
+# create base plot 
 baseplot <- ggplot(medhousing, aes(x=date, y=price)) +
   scale_y_continuous(limits=c(0,400000), labels=label_comma(), n.breaks=13) + 
   labs(
@@ -194,7 +245,7 @@ baseplot <- ggplot(medhousing, aes(x=date, y=price)) +
     plot.margin = unit(c(1,1,2,1), "lines")
   ) 
 
-
+# identify recessions
 identifiedRecessions <- recessions |> filter(recessions$occurredDuringHousing == TRUE)
 
 for (i in 1:nrow(identifiedRecessions)) {
@@ -227,11 +278,11 @@ medhousingSubset <- medhousingSubset |> mutate(year = year(date)) |> mutate(quar
 )) |> mutate(posixdate = as.POSIXct(date))
 
 ggplot(medhousingSubset, aes(y=price, x=date)) + 
-  geom_line(color="blue") + geom_point(color='blue', fill='white', shape=21) + 
+  geom_line(color="#5571DC", linewidth=1) + geom_point(color='#5571DC', fill='white', shape=21) + 
   theme(
     panel.background = element_rect(fill="white"),
-    panel.grid.major = element_line(color="lightgrey"),
-    panel.grid.minor.y=element_line(color="lightgrey"),
+    panel.grid.major = element_line(color="#EBEBEB"),
+    panel.grid.minor.y=element_line(color="#EBEBEB"),
     strip.clip="on",
     axis.ticks = element_blank(),
     plot.margin = unit(c(1, 1, 2, 1), "cm")
@@ -239,7 +290,7 @@ ggplot(medhousingSubset, aes(y=price, x=date)) +
   )  + xlim(ymd("2019-01-01", ymd("2020-12-31"))) + 
   scale_y_continuous(limits=c(300000, 360000),labels=label_comma(), breaks=seq(30e4,36e4, by = 2e4), expand=c(0,0)) + 
     labs(
-    x="", y="Price", title="Median sales price of houses sold in the United States",
+    x="", y="Dollars", title="Median sales price of houses sold in the United States",
     subtitle="Not seasonally adjusted"
   ) +
   coord_cartesian(clip = "off") + 
@@ -258,8 +309,11 @@ library("ggforce")
 
 ```
 
-```{r}
+For sourcing the colors, I did not look this up online. I instead took a screenshot of your photo and did a color picker for the hexadecimal color. You can do so built in from Mac. I verified it from this: <https://www.brandcolorcode.com/target>
 
+For this process, I made three circles filled in alternating with red, white, red, and layered them with smaller ones in the front.
+
+```{r}
 #| label: make target logo
 
 library("ggplot2")
@@ -274,9 +328,9 @@ df <- data.frame(col1=c(0, 100), col2=c(0, 100))
 
 # plotting the data
 ggplot(df, aes(x=col1, y=col2)) +
-  geom_circle(aes(x0=50, y0=50, r=50), fill="#D53A2A", color="#D53A2A", inherit.aes=FALSE)+
+  geom_circle(aes(x0=50, y0=50, r=50), fill="#CC0000", color="#CC0000", inherit.aes=FALSE)+
   geom_circle(aes(x0=50, y0=50, r=35), fill="white", color="white", inherit.aes=FALSE)+
-  geom_circle(aes(x0=50, y0=50, r=15), fill="#D53A2A", color="#D53A2A", inherit.aes=FALSE)+
+  geom_circle(aes(x0=50, y0=50, r=15), fill="#CC0000", color="#CC0000", inherit.aes=FALSE)+
 
  coord_fixed(clip="off") + 
   theme (
@@ -289,9 +343,9 @@ ggplot(df, aes(x=col1, y=col2)) +
     axis.text.y=element_blank(),
     plot.margin=margin(10, 10, 100, 10)
   ) + 
-  annotate("text", label="TARGET", x=50, y=0, vjust=2, color="#D53A2A", size=12, fontface="bold") +
-    geom_circle(aes(x0=110, y0=-38, r=6), fill="white", color="#D53A2A", inherit.aes=FALSE, linewidth=1) + 
-    annotate("text", label="R", x=110, y=0, vjust=6.44, color="#D53A2A", size=4, fontface="bold")
+  annotate("text", label="TARGET", x=50, y=0, vjust=2, color="#CC0000", size=12, fontface="bold") +
+    geom_circle(aes(x0=110, y0=-38, r=6), fill="white", color="#CC0000", inherit.aes=FALSE, linewidth=1) + 
+    annotate("text", label="R", x=110, y=0, vjust=6.44, color="#CC0000", size=4, fontface="bold")
 
 
 ```
